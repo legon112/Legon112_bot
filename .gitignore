@@ -1,2 +1,6 @@
 venv
 ответы.txt
+__pycache__
+image
+Tokens.py
+test.py

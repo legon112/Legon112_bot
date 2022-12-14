@@ -4,15 +4,17 @@ import sys
 import logging
 from typing import Any, Dict
 import asyncio
-
+from func_by_Kravchenko import getimage
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher.filters.state import StatesGroup, State
 from aiogram.dispatcher import FSMContext
+from Tokens import api_token
 
 
 
-API_TOKEN = '5641212086:AAFAiBv_4r6SeMi6JVAnpnqCsQylkOFf5lw'
+
+API_TOKEN = api_token
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -26,9 +28,11 @@ class Form(StatesGroup):
     answer_human = State()
     
     
-adress = ['answer_hi.txt', 'answer_whats_up.txt', 'answer_weather.txt', 'answer_name.txt','answer_age.txt','answer_time.txt']
+adress = ['answer_hi.txt','answer_whats_up.txt', 'answer_weather.txt','answer_name.txt','answer_age.txt','answer_time.txt']
 bot_answers = {adres : open(mode='r', file = adres, encoding='utf-8').read().split() for adres in adress}
-print(bot_answers)
+if not os.path.exists('image'):
+        os.mkdir('image')
+bot_images = {adres : open(mode='r', file = f'image/{adres}', encoding='utf-8').read().split() for adres in os.listdir(path='image')}
 actions = ['-', '+', '*', '/']
 counter_false = 0
 counter_questions = 0
@@ -38,7 +42,7 @@ game_state = False
 
 @dp.message_handler(commands=['start', 'help'])
 async def send_welcome(message: types.Message):
-    await message.reply("Доступна математическая игра по команде /start_game, а также ответы на эти вопросы:\nПривет\nКак дела?\nКакая погода за окном?\nКак тебя зовут?\nСколько тебе дней?\nКоторый час?")
+    await message.reply("Доступны функции:\nМатематическая игра по команде /start_game\nПри просьбе дать картинку(Привет, кинь, пж, картинку кота) отправляет картинку(если хотите найти картинку по нескольким словам напишите их через подчеркивание)\nОтветы на эти вопросы:\nПривет\nКак дела?\nКакая погода за окном?\nКак тебя зовут?\nСколько тебе дней?\nКоторый час?")
 
 
     
@@ -85,8 +89,25 @@ async def math_game_counter(message: types.Message, state: FSMContext):
 
 @dp.message_handler()
 async def echo(message: types.Message):
-    global bot_answers
-    if message.text.lower() == 'привет':
+    global bot_answers, bot_images
+    index_var = 0
+    messege_text= message.text.lower().split()
+    if 'картинк' in message.text.lower():
+        for i in messege_text:
+            index_var +=1
+            if 'картинк' in i:
+                break
+        image_pic = messege_text[index_var]
+        image_pic_txt = f'{image_pic}.txt'
+        try:
+            bot_images[image_pic_txt]
+        except:
+            bot_images[image_pic_txt] = getimage(image_pic)
+        try:
+            await bot.send_photo(message.chat.id, bot_images[image_pic_txt][randint(0,len(bot_images[image_pic_txt])-1)])      
+        except:
+             await message.reply('Картинки по запросу не нашлось(')       
+    elif message.text.lower() == 'привет':
         await message.answer(bot_answers['answer_hi.txt'][randint(0,len(bot_answers['answer_hi.txt']) - 1)])
     elif message.text.lower() == 'как дела?':
         await message.answer(bot_answers['answer_whats_up.txt'][randint(0,len(bot_answers['answer_whats_up.txt']) - 1)])
@@ -100,7 +121,7 @@ async def echo(message: types.Message):
         await message.answer(bot_answers['answer_time.txt'][randint(0,len(bot_answers['answer_time.txt']) - 1)])
     else:
         await message.answer(message.text)
-        open(mode='r+', file = 'ответы.txt', encoding='utf-8').write(message['from']['username'] + ' ' + message.text)
+        # open(mode='r+', file = 'ответы.txt', encoding='utf-8').write(f'{message.from}')
 
 
 if __name__ == '__main__':
