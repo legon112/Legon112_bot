@@ -94,7 +94,7 @@ async def math_game_start(message: types.Message):
     await message.reply('Sub string detection is started')
     await Form.sub_string_form.set()
 
-@dp.message_handler(commands=['stop_game'],state=Form.answer_human)
+@dp.message_handler(commands=['stop_sub_string'],state=Form.sub_string_form)
 async def math_game_stop(message: types.Message, state: FSMContext):
     await message.reply('Sub string detection is stoped')
     await state.finish()
