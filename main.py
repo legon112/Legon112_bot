@@ -4,7 +4,7 @@ import sys
 import logging
 from typing import Any, Dict
 import asyncio
-from func_by_Kravchenko import getimage
+from func_by_Kravchenko import getimage, sub_string
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher.filters.state import StatesGroup, State
@@ -26,6 +26,7 @@ dp = Dispatcher(bot, storage=MemoryStorage())
 
 class Form(StatesGroup):
     answer_human = State()
+    sub_string_form = State()
     
     
 adress = ['answer_hi.txt','answer_whats_up.txt', 'answer_weather.txt','answer_name.txt','answer_age.txt','answer_time.txt']
@@ -42,7 +43,7 @@ game_state = False
 
 @dp.message_handler(commands=['start', 'help'])
 async def send_welcome(message: types.Message):
-    await message.reply("Доступны функции:\nМатематическая игра по команде /start_game\nПри просьбе дать картинку(Привет, кинь, пж, картинку кота) отправляет картинку(если хотите найти картинку по нескольким словам напишите их через подчеркивание)\nОтветы на эти вопросы:\nПривет\nКак дела?\nКакая погода за окном?\nКак тебя зовут?\nСколько тебе дней?\nКоторый час?")
+    await message.reply("Доступны функции:\nМатематическая игра по команде /start_game\nПри просьбе дать картинку\n(Например:Привет, кинь, пж, картинку кота)\nотправляет картинку\n(если хотите найти картинку по нескольким словам напишите их через подчеркивание)\n(Картинка ищется через pinterest, иногда может не совпадать с темой)\nОтветы на эти вопросы:\nПривет\nКак дела?\nКакая погода за окном?\nКак тебя зовут?\nСколько тебе дней?\nКоторый час?")
 
 
     
@@ -71,6 +72,7 @@ async def math_game_stop(message: types.Message, state: FSMContext):
     counter_true = 0
     await state.finish()
     
+    
 @dp.message_handler(state=Form.answer_human)
 async def math_game_counter(message: types.Message, state: FSMContext):
     global question, counter_true, counter_false, counter_false, counter_questions
@@ -85,6 +87,21 @@ async def math_game_counter(message: types.Message, state: FSMContext):
     counter_questions += 1
     question = f'{randint(1,10)} {actions[randint(0,3)]} {randint(1,10)}'
     await message.answer(answer_ + question)
+    
+    
+@dp.message_handler(commands=['Start_sub_string'])
+async def math_game_start(message: types.Message):
+    await message.reply('Sub string detection is started')
+    await Form.sub_string_form.set()
+
+@dp.message_handler(commands=['stop_game'],state=Form.answer_human)
+async def math_game_stop(message: types.Message, state: FSMContext):
+    await message.reply('Sub string detection is stoped')
+    await state.finish()
+
+@dp.message_handler(state=Form.sub_string_form)
+async def math_game_counter(message: types.Message, state: FSMContext):
+    await message.reply(sub_string(message.text))
 
 
 @dp.message_handler()
