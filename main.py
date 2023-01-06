@@ -1,16 +1,16 @@
 import os
-import sys
 import logging
 import asyncio
+import json
 
 from random import randint
-from typing import Any, Dict
-from func_by_Kravchenko import getimage, sub_string, getweather
+from func_by_Kravchenko import getimage, sub_string, getweather, getvaluequery, inline_keyboard, inline_random, update_currency
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher.filters.state import StatesGroup, State
 from aiogram.dispatcher import FSMContext
 from decouple import config
+from datetime import date
 
 
 API_TOKEN = config('API_TOKEN')
@@ -31,6 +31,9 @@ class Weather(StatesGroup):
     start = State()
     location = State()
     viev = State()
+    
+class Currency(StatesGroup):
+    currency_start = State()
 
 adress = ['answer_hi.txt','answer_whats_up.txt', 'answer_weather.txt','answer_name.txt','answer_age.txt','answer_time.txt']
 bot_answers = {adres : open(mode='r', file = adres, encoding='utf-8').read().split() for adres in adress}
@@ -52,11 +55,14 @@ sub_string_keyboaed = types.ReplyKeyboardMarkup()
 weather_info_keyboard = types.ReplyKeyboardMarkup()
 weather_start_keyboard = types.InlineKeyboardMarkup()
 weather_end_keyboard = types.InlineKeyboardMarkup()
+value_info_keyboard = types.InlineKeyboardMarkup()
+value_end_keyboard = types.ReplyKeyboardMarkup()
 
 start_button = types.KeyboardButton('/start')
 start_game_button = types.KeyboardButton('/start_game')
 start_sub_string_button = types.KeyboardButton('/start_sub_string')
 start_weather_info_button = types.KeyboardButton('/start_weather_info')
+value_button = types.KeyboardButton('/start_value')
 stop_weather_info_button = types.KeyboardButton('/stop_weather_info')
 math_game_stop_button = types.KeyboardButton('/stop_game')
 sub_string_button = types.KeyboardButton('/stop_sub_string')
@@ -67,25 +73,141 @@ kiev_city = types.InlineKeyboardButton('Київ', callback_data='Kiev')
 tours_city = types.InlineKeyboardButton('Тур', callback_data='Tours')
 again_city = types.InlineKeyboardButton('Новый город', callback_data='1')
 new_city = types.InlineKeyboardButton('Повторить погоду', callback_data='0')
+usb_button = types.InlineKeyboardButton('USD', callback_data='USD')
+eur_button = types.InlineKeyboardButton('EUR', callback_data='EUR')
+gbp_button = types.InlineKeyboardButton('GBP', callback_data='GBP')
+value_end = types.KeyboardButton('/stop_value')
 
-main_keyboard.add(start_game_button, start_sub_string_button, start_weather_info_button)
+main_keyboard.add(start_game_button, start_sub_string_button, start_weather_info_button, value_button)
 math_game_start_keyboard.add(type_game_1, type_game_2)
 math_game_stop_keyboard.add(math_game_stop_button)
 sub_string_keyboaed.add(sub_string_button)
 weather_info_keyboard.add(stop_weather_info_button, start_button)
 weather_start_keyboard.add(dnipro_city, kiev_city, tours_city)
 weather_end_keyboard.add(new_city, again_city)
+value_end_keyboard.add(value_end, start_button)
+value_info_keyboard.add(usb_button, eur_button, gbp_button)
+value_info2_keyboard = inline_keyboard()
+
+ 
+
 
 "        Основное     "
-@dp.message_handler(commands=['start'])
-async def send_welcome(message: types.Message):
+@dp.message_handler(commands=['start'], state = '*')
+async def send_welcome(message: types.Message, state: FSMContext):
+    await state.finish()
     await message.reply('Привет!\nЯ бот Аби)\nПо команде /help - перечень функция', reply_markup=main_keyboard)#
 
 @dp.message_handler(commands=['help'])
 async def send_welcome(message: types.Message):
-    await message.reply("Доступны функции:\nМатематическая игра по команде /start_game\nСожержится ли подстрока в строке /start_sub_string\nПри просьбе дать картинку\n(Например:Привет, кинь, пж, картинку кота)\nотправляет картинку\n(если хотите найти картинку по нескольким словам напишите их через подчеркивание)\n(Картинка ищется через pinterest, иногда может не совпадать с темой)\nИнформация по погоде /start_weather_info\nОтветы на эти вопросы:\nПривет\nКак дела?\nКакая погода за окном?\nКак тебя зовут?\nСколько тебе дней?\nКоторый час?",)
+    await message.reply("Доступны функции:\nМатематическая игра по команде /start_game\nСожержится ли подстрока в строке /start_sub_string\nПри просьбе дать картинку\n(Например:Привет, кинь, пж, картинку кота)\nотправляет картинку\n(если хотите найти картинку по нескольким словам напишите их через подчеркивание)\n(Картинка ищется через pinterest, иногда может не совпадать с темой)\nИнформация по погоде /start_weather_info\nОтветы на эти вопросы:\nПривет\nКак дела?\nКакая погода за окном?\nКак тебя зовут?\nСколько тебе дней?\nКоторый час?")
+ 
+ 
+ 
     
+'        Курс валют          '
+@dp.message_handler(commands=['start_value'])
+async def send_welcomee(message: types.Message, state: FSMContext):
+    json_file = 'currency.json'
+    await message.answer('Режим курсу валют увімкнено', reply_markup=value_end_keyboard)
+    await message.answer(text='Оберіть курс валют або введіть код валюти:', reply_markup=value_info_keyboard)
+    await Currency.currency_start.set()
+    while True:
+        async with state.proxy() as data:
+                data['currency_mono'] = update_currency()
+        await asyncio.sleep(300)
         
+
+    
+@dp.message_handler(commands=['stop_value'], state=Currency.currency_start)
+async def stop_value(message: types.Message, state: FSMContext):
+    await message.answer(text='Режим курсу валют вимкнено', reply_markup=main_keyboard)
+    await state.finish()
+    
+@dp.message_handler(state=Currency.currency_start)
+async def value_answer(message: types.Message, state: FSMContext):
+    usd_list = ['usd', 'долар']
+    eur_list = ['eur', 'евро', "євро"]
+    if message.text.lower() in usd_list:
+        valuta = 'USD'
+    elif message.text.lower() in eur_list:
+        valuta = 'EUR'
+    else:
+        valuta = message.text.upper()   
+    async with state.proxy() as data:
+        sellbuy = getvaluequery(data['currency_mono'], valuta)
+        if sellbuy:
+            answer = f'Продажа {valuta}: {sellbuy[1]}\nПокупка {valuta}: {sellbuy[0]}'
+            async with state.proxy() as data:
+                data['answer_value'] = answer
+            await message.reply(answer, reply_markup=value_info2_keyboard)
+        else:
+            answer = 'Валюта не була знайдена, ось декілька рандомних валют):'
+            await message.reply(answer, reply_markup=inline_random())
+
+@dp.callback_query_handler(state=Currency.currency_start)
+async def value_query(query: types.CallbackQuery, state: FSMContext):
+    if query.data == '1':
+        async with state.proxy() as data:
+            answer = data['answer_value']
+        await query.message.answer(answer, reply_markup= value_info2_keyboard)
+        await query.message.delete()
+    else:
+        valuta = query.data
+        async with state.proxy() as data:
+            sellbuy = getvaluequery(data['currency_mono'], valuta)
+        if sellbuy:
+            answer = f'Продажа {valuta}: {sellbuy[1]}\nПокупка {valuta}: {sellbuy[0]}'
+            await query.message.edit_text(answer, reply_markup=value_info2_keyboard)        
+            async with state.proxy() as data:
+                data['answer_value'] = answer
+        else:
+            await query.message.edit_text(f'Валюти {query.data} нема в monobank api(', reply_markup=value_info2_keyboard)
+
+
+
+
+"               Погода              "
+@dp.message_handler(commands=['start_weather_info'])
+async def weather_info_startt(message: types.Message):
+    await message.reply('Вітаю у меню інформації о погоді!\nВведіть /start',reply_markup=weather_info_keyboard)
+    await Weather.start.set()
+    
+@dp.message_handler(commands=['stop_weather_info'], state=(Weather.start, Weather.location, Weather.viev))
+async def weather_info_stop(message: types.Message, state: FSMContext):
+    await message.reply('Weather info is stoped', reply_markup=main_keyboard)
+    await state.finish()
+       
+@dp.message_handler(commands=['start'], state=Weather.start)
+async def weather_infoe_start(message: types.Message):
+    await message.answer('Оберіть місто в якому цікавить погода:', reply_markup=weather_start_keyboard)
+    await Weather.location.set()
+
+@dp.callback_query_handler(state=Weather.location)
+async def weather_info_location(query: types.CallbackQuery, state: FSMContext):
+    city_dict = {'Dnipro' : 'Дніпро', 'Kiev' : 'Київ', 'Tours' : 'Тур'}
+    weather_city = getweather(query.data)
+    answer_weather = f'У місті {city_dict[query.data]} {weather_city[0]}, температура {weather_city[1]}°C'
+    await query.message.edit_text(answer_weather, reply_markup=weather_start_keyboard)
+    async with state.proxy() as data:
+        data['answer'] = answer_weather
+
+@dp.message_handler(commands=['start'], state=(Weather.location, Weather.viev))
+async def weather_info_end(message: types.Message):
+    await message.reply('Оберіть що ви хочете зробити:', reply_markup=weather_end_keyboard)
+    await Weather.viev.set()
+    
+@dp.callback_query_handler(state=Weather.viev)
+async def weather_end(query: types.CallbackQuery, state: FSMContext):
+    if query.data == '1':
+        await query.message.edit_text('Оберіть місто в якому цікавить погода:',reply_markup=weather_start_keyboard)
+        await Weather.location.set()
+    elif query.data == '0':
+        async with state.proxy() as data:
+            await query.message.edit_text(data['answer'], reply_markup= types.InlineKeyboardMarkup().add(again_city))
+    
+    
+    
  
 "       Математическая игра          "   
 @dp.message_handler(commands=['start_game'])
@@ -194,47 +316,6 @@ async def sub_string_stop(message: types.Message, state: FSMContext):
 async def sub_string_main(message: types.Message, state: FSMContext):
     await message.reply(sub_string(message.text))
 
-
-
-
-"               Погода              "
-@dp.message_handler(commands=['start_weather_info'])
-async def weather_info_startt(message: types.Message):
-    await message.reply('Вітаю у меню інформації о погоді!\nВведіть /start',reply_markup=weather_info_keyboard)
-    await Weather.start.set()
-    
-@dp.message_handler(commands=['stop_weather_info'], state=(Weather.start, Weather.location, Weather.viev))
-async def weather_info_stop(message: types.Message, state: FSMContext):
-    await message.reply('Weather info is stoped', reply_markup=main_keyboard)
-    await state.finish()
-       
-@dp.message_handler(commands=['start'], state=Weather.start)
-async def weather_infoe_start(message: types.Message):
-    await message.answer('Оберіть місто в якому цікавить погода:', reply_markup=weather_start_keyboard)
-    await Weather.location.set()
-
-@dp.callback_query_handler(state=Weather.location)
-async def weather_info_location(query: types.CallbackQuery, state: FSMContext):
-    city_dict = {'Dnipro' : 'Дніпро', 'Kiev' : 'Київ', 'Tours' : 'Тур'}
-    weather_city = getweather(query.data)
-    answer_weather = f'У місті {city_dict[query.data]} {weather_city[0]}, температура {weather_city[1]}°C'
-    await query.message.edit_text(answer_weather, reply_markup=weather_start_keyboard)
-    async with state.proxy() as data:
-        data['answer'] = answer_weather
-
-@dp.message_handler(commands=['start'], state=(Weather.location, Weather.viev))
-async def weather_info_end(message: types.Message):
-    await message.reply('Оберіть що ви хочете зробити:', reply_markup=weather_end_keyboard)
-    await Weather.viev.set()
-    
-@dp.callback_query_handler(state=Weather.viev)
-async def weather_end(query: types.CallbackQuery, state: FSMContext):
-    if query.data == '1':
-        await query.message.edit_text('Оберіть місто в якому цікавить погода:',reply_markup=weather_start_keyboard)
-        await Weather.location.set()
-    elif query.data == '0':
-        async with state.proxy() as data:
-            await query.message.edit_text(data['answer'], reply_markup= types.InlineKeyboardMarkup().add(again_city))
     
             
 
